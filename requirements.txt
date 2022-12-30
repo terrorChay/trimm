@@ -1,0 +1,6 @@
+# Core
+streamlit
+pyxlsb
+xlsxwriter
+beautifulsoup4
+requests
