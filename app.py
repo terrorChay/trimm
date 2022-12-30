@@ -84,6 +84,6 @@ def main():
         st.download_button('💾 Excel', data=convert_df(df, True), file_name=f"{region}.xlsx")
 
 if __name__ == "__main__":
-    utils.page_config(layout='centered', title='LPU scraper')
+    utils.page_config(layout='centered', title='matyush.in')
     utils.remove_footer()
     main()
