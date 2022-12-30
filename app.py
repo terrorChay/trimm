@@ -73,7 +73,7 @@ def convert_df(df: pd.DataFrame, to_excel=False):
     return processed_data
 
 def main():
-    st.header('prodoctorov.ru ЛПУ парсер')
+    st.subheader('ilya@matyush.in')
     with st.form('parser'):
         region = st.selectbox('Выберите регион', ['Астрахань', 'Сочи', 'Тюмень', 'Воронеж'])
         address = regions[region]
