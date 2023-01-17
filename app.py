@@ -168,7 +168,7 @@ def main():
         to_find = st.selectbox('Что ищем?', ['ЛПУ', 'Врачи'])
         page_limit = st.select_slider('Максимум страниц', options=['Нет']+list(range(1,21)))
         address = regions[region]
-        submit = st.button('Поехали')
+        submit = st.form_submit_button('Поехали')
     if submit:
         if to_find == 'ЛПУ':
             session['df'] = scrape(address+'lpu', True, page_limit)
