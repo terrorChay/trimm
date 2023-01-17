@@ -178,7 +178,7 @@ def main():
     if 'df' not in session:
         session['df'] = None
     df = session['df']
-    if df != None:
+    if type(df) == pd.DataFrame:
         df_filters_applied  = filter_dataframe(df)
         if df_filters_applied.shape[0]:
             st.dataframe(df_filters_applied)
