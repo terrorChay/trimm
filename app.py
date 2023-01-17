@@ -11,6 +11,7 @@ from pandas.api.types import (
     is_numeric_dtype,
     is_object_dtype,
 )
+from streamlit import session_state as session
 
 regions = {
     'Астрахань' : 'https://prodoctorov.ru/astrahan/',
@@ -162,22 +163,25 @@ def filter_dataframe(df: pd.DataFrame, cols_to_ignore=[]) -> pd.DataFrame:
 
 def main():
     st.subheader('ilya@matyush.in')
-    # with st.form('parser'):
-    region = st.selectbox('Где ищем?', ['Астрахань', 'Сочи', 'Тюмень', 'Воронеж'])
-    to_find = st.selectbox('Что ищем?', ['ЛПУ', 'Врачи'])
-    page_limit = st.select_slider('Максимум страниц', options=['Нет']+list(range(1,21)))
-    address = regions[region]
-    submit = st.button('Поехали')
+    with st.form('parser'):
+        region = st.selectbox('Где ищем?', ['Астрахань', 'Сочи', 'Тюмень', 'Воронеж'])
+        to_find = st.selectbox('Что ищем?', ['ЛПУ', 'Врачи'])
+        page_limit = st.select_slider('Максимум страниц', options=['Нет']+list(range(1,21)))
+        address = regions[region]
+        submit = st.button('Поехали')
     if submit:
         if to_find == 'ЛПУ':
-            df = scrape(address+'lpu', True, page_limit)
+            session['df'] = scrape(address+'lpu', True, page_limit)
         else:
-            df = scrape(address+'vrach', False, page_limit)
-        
-        df_filters_applied  = filter_dataframe(df)
-        if df_filters_applied.shape[0]:
-            st.dataframe(df_filters_applied)
-            st.download_button('💾 Excel', data=convert_df(df_filters_applied, True), file_name=f"{region}.xlsx")
+            session['df'] = scrape(address+'vrach', False, page_limit)
+    
+    if 'df' not in session:
+        session['df'] = None
+    df = session['df']
+    df_filters_applied  = filter_dataframe(df)
+    if df_filters_applied.shape[0]:
+        st.dataframe(df_filters_applied)
+        st.download_button('💾 Excel', data=convert_df(df_filters_applied, True), file_name=f"{region}.xlsx")
 
 if __name__ == "__main__":
     utils.page_config(layout='centered', title='matyush.in')
