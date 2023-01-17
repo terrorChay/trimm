@@ -162,12 +162,12 @@ def filter_dataframe(df: pd.DataFrame, cols_to_ignore=[]) -> pd.DataFrame:
 
 def main():
     st.subheader('ilya@matyush.in')
-    with st.form('parser'):
-        region = st.selectbox('Где ищем?', ['Астрахань', 'Сочи', 'Тюмень', 'Воронеж'])
-        to_find = st.selectbox('Что ищем?', ['ЛПУ', 'Врачи'])
-        page_limit = st.select_slider('Максимум страниц', options=['Нет']+list(range(1,21)))
-        address = regions[region]
-        submit = st.form_submit_button('Поехали')
+    # with st.form('parser'):
+    region = st.selectbox('Где ищем?', ['Астрахань', 'Сочи', 'Тюмень', 'Воронеж'])
+    to_find = st.selectbox('Что ищем?', ['ЛПУ', 'Врачи'])
+    page_limit = st.select_slider('Максимум страниц', options=['Нет']+list(range(1,21)))
+    address = regions[region]
+    submit = st.button('Поехали')
     if submit:
         if to_find == 'ЛПУ':
             df = scrape(address+'lpu', True, page_limit)
