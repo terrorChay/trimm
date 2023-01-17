@@ -178,10 +178,11 @@ def main():
     if 'df' not in session:
         session['df'] = None
     df = session['df']
-    df_filters_applied  = filter_dataframe(df)
-    if df_filters_applied.shape[0]:
-        st.dataframe(df_filters_applied)
-        st.download_button('💾 Excel', data=convert_df(df_filters_applied, True), file_name=f"{region}.xlsx")
+    if df != None:
+        df_filters_applied  = filter_dataframe(df)
+        if df_filters_applied.shape[0]:
+            st.dataframe(df_filters_applied)
+            st.download_button('💾 Excel', data=convert_df(df_filters_applied, True), file_name=f"{region}.xlsx")
 
 if __name__ == "__main__":
     utils.page_config(layout='centered', title='matyush.in')
