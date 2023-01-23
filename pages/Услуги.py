@@ -5,6 +5,7 @@ import requests
 import pandas as pd
 import re
 from io import BytesIO
+from geopy.geocoders import Nominatim
 from pandas.api.types import (
     is_categorical_dtype,
     is_datetime64_any_dtype,
@@ -13,64 +14,50 @@ from pandas.api.types import (
 )
 from streamlit import session_state as session
 
-
 @st.experimental_memo
-def scrape(address, find_lpu, page_limit):
+def scrape(address, to_find):
     # Define things to find
-    if find_lpu:
-        target_attrs = {
-            'Название'      : ('span', {"data-qa": "lpu_card_heading_lpu_name"}),
-            'Тип'           : ('div', {"data-qa": "lpu_card_subheading_lputype_name"}),
-            'Кол-во врачей' : ('div', {"data-qa": "lpu_card_subheading_doctors_count"}),
-            'Адрес'         : ('span', {"data-qa": "lpu_card_btn_addr_text"}),
-            'Телефон'       : ('span', {"data-qa": "lpu_card_btn_phone_text"}),
-            'Открыто до'    : ('span', {"data-qa": "lpu_card_btn_schedule_text"}),
-            'Цены'          : ('span', {"data-qa": "lpu_card_btn_prices_num"}),
-            'Отзывы'        : ('span', {"data-qa": "lpu_card_stars_text"}),
-        }
-    else:
-        target_attrs = {
-            'ФИО'               : ('span', {"class": "b-doctor-card__name-surname"}),
-            'Специальность'     : ('div', {"class": "b-doctor-card__spec"}),
-            'Стаж'              : ('div', {"class": "b-doctor-card__experience-years"}),
-            'Категория'         : ('div', {"class": "b-doctor-card__category"}),
-            'Отзывов'           : ('a', {"class": "ui-text ui-text_body-2 b-link b-link_prg b-link_color_grey b-link_underline"}),
-            'Клиника'           : ('span', {"class": "b-select__trigger-main-text"}),
-            'Адрес клиники'     : ('span', {"class": "b-select__trigger-adit-text"}),
-        }
+    target_attrs = {
+        'Название'      : ('span', {"data-qa": "lpu_card_heading_lpu_name"}),
+        'Адрес'         : ('span', {"data-qa": "lpu_card_btn_addr_text"}),
+        'Телефон'       : ('span', {"data-qa": "lpu_card_btn_phone_text"}),
+        'Открыто до'    : ('span', {"data-qa": "lpu_card_btn_schedule_text"}),
+        'Кнопка'        : ('span', {"class":"ui-text ui-text_button"})
+    }
 
     # Output dataframe to fil
     df = pd.DataFrame(columns=target_attrs.keys())
-
-    page_num = 1
+    supposed_page = 0
     response = '200'
-    while response == '200' and page_num-1 != page_limit:
-        url = f"{address}/?page={page_num}"
+    while response == '200':
+        supposed_page += 1
+        url = f"{address}diagnostika/{to_find}/?page={supposed_page}"
         page = requests.get(url)
         response = str(page.status_code)
         if response == '200':
-            page_num += 1
             soup = BeautifulSoup(page.text, "html.parser")
-            # Iterate over
-            if find_lpu:
-                all = soup.findAll('div', class_='b-card__row')
+            curpage_items = soup.findAll('span', class_='b-pagination-vuetify-imitation__item b-pagination-vuetify-imitation__item_current')
+            # Get actual page
+            if len(curpage_items) == 0:
+                actual_page = 1
             else:
-                all = soup.findAll('div', class_='b-doctor-card')
-            for item in all:
-                item_data = []
-                for key, attrs in target_attrs.items():
-                    data_unit = item.find(*attrs)
-                    if data_unit is not None:
-                        raw_text = data_unit.text.strip("""\n               """)
-                        if key == 'Кол-во врачей' or key == 'Отзывы':
-                            raw_text = re.sub(r"\D", "", raw_text)
-                        elif key == 'Специальность':
-                            raw_text = ', '.join(list(map(lambda x: x.strip() , raw_text.split(','))))
-                        item_data.append(raw_text)
-                    else:
-                        item_data.append(data_unit)
-                df.loc[len(df)] = item_data
-    st.success(f'Проанализировано {page_num-1} страниц! Страница {page_num} вернула код {response}.')
+                actual_page = int(curpage_items[0].text)
+
+            # Iterate over cards if supposed and actual page matches
+            if supposed_page == actual_page:
+                all = soup.findAll('div', class_='b-card__row')
+                for item in all:
+                    item_data = []
+                    for key, attrs in target_attrs.items():
+                        data_unit = item.find(*attrs)
+                        if data_unit is not None:
+                            raw_text = data_unit.text.strip("""\n               """)
+                            item_data.append(raw_text)
+                        else:
+                            item_data.append(data_unit)
+                    df.loc[len(df)] = item_data
+            else:
+                response = f'Supposed page {supposed_page} does not match actual page {actual_page}'
     return df
 
 @st.experimental_memo
@@ -162,20 +149,35 @@ def main():
         'Тюмень'    : 'https://prodoctorov.ru/tyumen/',
         'Воронеж'   : 'https://prodoctorov.ru/voronezh/',
     }
-    
+
+    services = {
+        'МРТ'       : 'mrt',
+        'КТ'        : 'kt',
+        'Рентген'   : 'rentgen',
+    }
+    geolocator = Nominatim(user_agent='Tester')
     st.subheader('ilya@matyush.in')
     with st.form('parser'):
-        region = st.selectbox('Где ищем?', ['Астрахань', 'Сочи', 'Тюмень', 'Воронеж'])
-        to_find = st.selectbox('Что ищем?', ['ЛПУ', 'Врачи'])
-        page_limit = st.select_slider('Максимум страниц', options=['Нет']+list(range(1,21)))
+        region = st.selectbox('Где ищем?', regions.keys())
+        to_find = st.multiselect('Что ищем?', services.keys())
         address = regions[region]
         submit = st.form_submit_button('Найти')
     if submit:
-        if to_find == 'ЛПУ':
-            session['df'] = scrape(address+'lpu', True, page_limit)
-        else:
-            session['df'] = scrape(address+'vrach', False, page_limit)
-    
+        dfs = []
+        for service in to_find:
+            dfs.append(scrape(regions[region], services[service]))
+
+        df_merged = pd.DataFrame()
+        for idx, item in enumerate(dfs):
+            if idx == 0:
+                df_merged = item
+            else:
+                df_merged = df_merged.merge(item, on='Название', how='inner', suffixes=('', '_remove'))
+        df_merged.drop([i for i in df_merged.columns if 'remove' in i], axis=1, inplace=True)
+        
+        st.success(f'В регионе  {region} найдено {df_merged.shape[0]} клиник, в которых можно сделать {", ".join(to_find)}')
+        session['df'] = df_merged
+
     if 'df' not in session:
         session['df'] = None
     df = session['df']
