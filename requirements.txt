@@ -4,3 +4,4 @@ pyxlsb
 xlsxwriter
 beautifulsoup4
 requests
+geopy
