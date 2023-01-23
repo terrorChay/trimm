@@ -1,7 +1,9 @@
 import streamlit as st
 import utils as utils
 from bs4 import BeautifulSoup
+import plotly.express as px
 import requests
+import numpy as np
 import pandas as pd
 import re
 from io import BytesIO
@@ -79,16 +81,6 @@ def convert_df(df: pd.DataFrame, to_excel=False):
 # Apply filters and return filtered dataset
 def filter_dataframe(df: pd.DataFrame, cols_to_ignore=[]) -> pd.DataFrame:
     df = df.copy()
-    # Try to convert datetimes into a standard format (datetime, no timezone)
-    for col in df.columns:
-        if is_object_dtype(df[col]):
-            try:
-                df[col] = pd.to_datetime(df[col])
-            except Exception:
-                pass
-
-        if is_datetime64_any_dtype(df[col]):
-            df[col] = df[col].dt.tz_localize(None)
 
     modification_container = st.container()
     with modification_container:
@@ -155,8 +147,10 @@ def main():
         'КТ'        : 'kt',
         'Рентген'   : 'rentgen',
     }
+
     geolocator = Nominatim(user_agent='Tester')
-    st.subheader('ilya@matyush.in')
+
+    st.subheader('Поиск клиник по услугам')
     with st.form('parser'):
         region = st.selectbox('Где ищем?', regions.keys())
         to_find = st.multiselect('Что ищем?', services.keys())
@@ -174,18 +168,47 @@ def main():
             else:
                 df_merged = df_merged.merge(item, on='Название', how='inner', suffixes=('', '_remove'))
         df_merged.drop([i for i in df_merged.columns if 'remove' in i], axis=1, inplace=True)
-        
         st.success(f'В регионе  {region} найдено {df_merged.shape[0]} клиник, в которых можно сделать {", ".join(to_find)}')
-        session['df'] = df_merged
+        df_merged['loc'] = df_merged['Адрес'].str.replace('д. ', '')
+        df_merged['loc'] = df_merged['loc'].str.replace('ул. ', '')
+        df_merged['loc'] = df_merged['loc'] + f', {region}'
 
-    if 'df' not in session:
-        session['df'] = None
-    df = session['df']
+        df_merged['lat'] = ""
+        df_merged['lon'] = ""
+
+        for row in range(df_merged.shape[0]):
+            location = geolocator.geocode(df_merged['loc'][row])
+            if location != None:
+                df_merged['lat'][row] = location.latitude
+                df_merged['lon'][row] = location.longitude
+            else:
+                df_merged['lat'][row] = None
+                df_merged['lon'][row] = None
+        session['df_uslugi'] = df_merged
+
+    if 'df_uslugi' not in session:
+        session['df_uslugi'] = None
+    df = session['df_uslugi']
     if type(df) == pd.DataFrame:
         df_filters_applied  = filter_dataframe(df)
         if df_filters_applied.shape[0]:
             st.dataframe(df_filters_applied)
             st.download_button('💾 Excel', data=convert_df(df_filters_applied, True), file_name=f"{region}.xlsx")
+            df_to_map = pd.DataFrame(np.random.randn(10, 2) / [50, 50] + [37.76, -122.4],columns=['lat', 'lon'])
+            df_to_map = df_filters_applied[['Название', 'Адрес', 'lon', 'lat']].dropna()
+            px.set_mapbox_access_token(st.secrets['mapbox'])
+            fig = px.scatter_mapbox(df_to_map, 
+                                    lat="lat", lon="lon",
+                                    hover_name='Название',
+                                    hover_data ={ 
+                                        'Адрес' : True, 
+                                        'lon'   : False,
+                                        'lat'   : False},
+                                    zoom=10)
+            fig.update_layout(margin = dict(l=0, r=0, t=0, b=0))
+            st.plotly_chart(fig, use_container_width=True)
+            # st.map(df_to_map)
+
     else:
         st.warning('Выполните поиск')
 

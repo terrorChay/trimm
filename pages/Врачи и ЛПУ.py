@@ -163,7 +163,7 @@ def main():
         'Воронеж'   : 'https://prodoctorov.ru/voronezh/',
     }
     
-    st.subheader('ilya@matyush.in')
+    st.subheader('Поиск врачей и клиник по региону')
     with st.form('parser'):
         region = st.selectbox('Где ищем?', ['Астрахань', 'Сочи', 'Тюмень', 'Воронеж'])
         to_find = st.selectbox('Что ищем?', ['ЛПУ', 'Врачи'])
